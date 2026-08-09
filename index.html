@@ -955,7 +955,7 @@
                             <label>نص الرسالة المخصصة:</label>
                             <textarea id="direct-message-text" rows="5" placeholder="اكتب نص الرسالة المخصصة هنا..."></textarea>
                         </div>
-                        <button class="btn" style="background: #25D366; color: #fff; width: 100%; font-size: 16px;" onclick="sendDirectCustomMessage()">إرسال الرسالة الآن عبر الواتساب 📲</button>
+                        <button class="btn" style="background: #25D366; color: #fff; width: 100%; font-size: 16px;" onclick="sendDirectDirectCustomMessage()">إرسال الرسالة الآن عبر الواتساب 📲</button>
                     </div>
                 </div>
                 <div class="engine-side-directory">
@@ -1232,6 +1232,48 @@
                 finishGroupAttendance(true);
             }
         }, 1000);
+
+        // المزامنة الدورية الحية التلقائية من السحابة كل 15 ثانية لتحديث الأسعار واليوزرات عبر باقي الأجهزة
+        setInterval(() => {
+            if (navigator.onLine && window.isAuthenticated) {
+                fetchCloudUpdates();
+            }
+        }, 15000);
+
+        async function fetchCloudUpdates() {
+            try {
+                const response = await fetch(cloudUrl);
+                const data = await response.json();
+                if (data) {
+                    let updated = false;
+
+                    if (data.groupPrices) {
+                        window.groupPrices = { ...window.groupPrices, ...data.groupPrices };
+                        updated = true;
+                    }
+                    if (data.usersList && data.usersList.length > 0) {
+                        window.usersList = data.usersList;
+                        updated = true;
+                    }
+                    if (data.students && data.students.length > 0) {
+                        data.students.forEach(remoteStudent => {
+                            const barcode = String(remoteStudent.barcode).trim();
+                            if (!window.studentsMap.has(barcode)) {
+                                window.students.push(remoteStudent);
+                            }
+                        });
+                        updateStudentsMap();
+                        updated = true;
+                    }
+
+                    if (updated) {
+                        saveToLocalOnly();
+                    }
+                }
+            } catch (e) {
+                console.log("خطأ في المزامنة الحية");
+            }
+        }
 
         function populateLoginUserSelect() {
             const select = document.getElementById('site-username-select');
@@ -1581,35 +1623,7 @@
             }
 
             if (navigator.onLine) {
-                try {
-                    const response = await fetch(cloudUrl);
-                    const data = await response.json();
-                    
-                    if (data && data.students && data.students.length > 0) {
-                        data.students.forEach(remoteStudent => {
-                            const barcode = String(remoteStudent.barcode).trim();
-                            if (!window.studentsMap.has(barcode)) {
-                                window.students.push(remoteStudent);
-                            }
-                        });
-                        
-                        window.attendanceHistory = { ...(data.attendanceHistory || {}), ...window.attendanceHistory };
-                        window.payments = { ...(data.payments || {}), ...window.payments };
-                        window.usersList = data.usersList || window.usersList;
-                        window.groupPrices = data.groupPrices || window.groupPrices || defaultGroupPrices;
-                        
-                        const todayKey = getTodayKey();
-                        window.attendanceToday = { ...(data.attendanceToday || {}), ...window.attendanceToday };
-                        if (window.attendanceHistory[todayKey]) {
-                            window.attendanceToday = { ...window.attendanceHistory[todayKey], ...window.attendanceToday };
-                        }
-
-                        updateStudentsMap();
-                        saveToLocalOnly();
-                    }
-                } catch (e) {
-                    console.log("تعذر الاتصال بالسحابة، الاعتماد على الحفظ المحلي.");
-                }
+                await fetchCloudUpdates();
             }
 
             document.getElementById('loading-overlay').style.display = 'none';
@@ -2090,6 +2104,7 @@
             }
         }
 
+        // تفريغ السجل اللحظي وحفظ المجموعة وإرسال الغياب بضغطة واحدة
         async function finishGroupAttendance(isAuto = false) {
             const currentGroup = getSelectedScanGroup();
             const groupStudents = window.students.filter(s => `${s.groupGrade} (${s.groupDays})` === currentGroup);
@@ -2122,6 +2137,11 @@
                     });
                 }
             });
+
+            // مسح وتفريغ السجل اللحظي للمجموعة عند حفظ المجموعة وإغلاقها
+            window.scanLogOrder = [];
+            const scanResultDiv = document.getElementById('scan-result');
+            if (scanResultDiv) scanResultDiv.innerHTML = '';
 
             await saveData();
 
