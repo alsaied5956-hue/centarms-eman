@@ -491,13 +491,6 @@
             color: #000;
         }
         .pdf-table th { background-color: #f1f5f9; color: #0f172a; }
-        .pdf-consecutive-alert {
-            background-color: #fee2e2;
-            color: #991b1b;
-            font-weight: bold;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
 
         .excel-upload-box {
             background: var(--input-bg);
@@ -951,8 +944,15 @@
                             <label>رقم ولي الأمر:</label>
                             <input type="text" id="direct-parent-phone" placeholder="سيظهر تلقائياً..." readonly style="opacity: 0.8;">
                         </div>
+                        
+                        <!-- أزرار إرسال تقارير الواجبات المباشرة لولي الأمر -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button type="button" class="btn" style="background: #f59e0b; color: #000; font-size: 13px; flex: 1;" onclick="sendHomeworkAlert('shortage')">⚠️ إرسال تنبيه: تقصير في الواجب</button>
+                            <button type="button" class="btn" style="background: #f43f5e; color: #fff; font-size: 13px; flex: 1;" onclick="sendHomeworkAlert('no_hw')">🚨 إرسال تنبيه: لم يعمل الواجب</button>
+                        </div>
+
                         <div class="form-group">
-                            <label>نص الرسالة:</label>
+                            <label>نص الرسالة المخصصة:</label>
                             <textarea id="direct-message-text" rows="5" placeholder="اكتب نص الرسالة المخصصة هنا..."></textarea>
                         </div>
                         <button class="btn" style="background: #25D366; color: #fff; width: 100%; font-size: 16px;" onclick="sendDirectCustomMessage()">إرسال الرسالة الآن عبر الواتساب 📲</button>
@@ -1120,7 +1120,7 @@
         window.isPendingSync = false;
         window.lastAutoSaveHour = -1;
 
-        // مصفوفة سريعة للبحث الفوري لحفظ أكثر من 10,000 طالب بكفاءة عالية
+        // خريطة سريعة فائقة الأداء لحفظ ومسح الطلاب والبحث الفوري لحظياً دون أي إبطاء
         window.studentsMap = new Map();
 
         function updateStudentsMap() {
@@ -1327,7 +1327,7 @@
 
             await saveData();
             
-            alert("✅ تم تغيير كلمة المرور وحفظها بنجاح!");
+            alert("✅ تم تغيير كلمة المرور وحفظها بنجاح متزامنة على كافة الأجهزة والسحابة!");
             document.getElementById('change-password-form').reset();
         }
 
@@ -1396,7 +1396,7 @@
             await saveData();
             document.getElementById('add-user-form').reset();
             renderUsersTable();
-            alert(`✅ تم إضافة حساب (${username}) وتعيين صلاحياته بنجاح!`);
+            alert(`✅ تم إضافة حساب (${username}) وتعيين صلاحياته بنجاح ومزامنته مع باقي الأجهزة!`);
         }
 
         function openEditUserModal(username) {
@@ -1443,7 +1443,7 @@
 
             const adminCount = window.usersList.filter(u => u.role === 'admin').length;
             if (window.usersList[userIndex].role === 'admin' && role !== 'admin' && adminCount <= 1) {
-                alert("❌ لا يمكن تغيير نوع هذا الحساب إلى سكرتارية لأن النظام يجب أن يحتوي على مسؤول (أدمن) واحد على الأقل تسجيل دخوله متاح دائماً!");
+                alert("❌ لا يمكن تغيير نوع هذا الحساب إلى سكرتارية لأن النظام يجب أن يحتوي على مسؤول (أدمن) واحد على الأقل متاح دائماً!");
                 return;
             }
 
@@ -1466,7 +1466,7 @@
             await saveData();
             closeEditUserModal();
             renderUsersTable();
-            alert("✅ تم تعديل بيانات المستخدم وصلاحياته بنجاح!");
+            alert("✅ تم تعديل بيانات المستخدم وصلاحياته بنجاح ومزامنته سحابياً!");
         }
 
         async function deleteUserAccount(username) {
@@ -1525,7 +1525,7 @@
 
             await saveData();
             document.getElementById('price-auth-password').value = '';
-            alert(`✅ تم حفظ وتأكيد سعر الاشتراك لـ (${selectedGrade}) بـ ${amount} جنيه بنجاح!`);
+            alert(`✅ تم حفظ وتأكيد سعر الاشتراك لـ (${selectedGrade}) بـ ${amount} جنيه بنجاح ومتزامن على جميع الأجهزة!`);
         }
 
         function handlePasswordKey(e) {
@@ -1585,7 +1585,6 @@
                     const response = await fetch(cloudUrl);
                     const data = await response.json();
                     
-                    // دمَج البيانات السحابية مع البيانات المحلية للحفاظ على المسجلين جدداً بدون مسح
                     if (data && data.students && data.students.length > 0) {
                         data.students.forEach(remoteStudent => {
                             const barcode = String(remoteStudent.barcode).trim();
@@ -1596,6 +1595,8 @@
                         
                         window.attendanceHistory = { ...(data.attendanceHistory || {}), ...window.attendanceHistory };
                         window.payments = { ...(data.payments || {}), ...window.payments };
+                        window.usersList = data.usersList || window.usersList;
+                        window.groupPrices = data.groupPrices || window.groupPrices || defaultGroupPrices;
                         
                         const todayKey = getTodayKey();
                         window.attendanceToday = { ...(data.attendanceToday || {}), ...window.attendanceToday };
@@ -1900,6 +1901,26 @@
             document.getElementById('direct-message-text').value = defaultMsg;
         }
 
+        // دالة جديدة لتوليد رسائل تنبيهات الواجبات (عدم عمل الواجب أو التقصير)
+        function sendHomeworkAlert(type) {
+            const barcode = document.getElementById('direct-student-selected-barcode').value;
+            const student = window.studentsMap.get(String(barcode).trim()) || window.students.find(s => String(s.barcode).trim() === String(barcode).trim());
+            
+            if(!student) {
+                alert("يرجى تحديد واختيار الطالب أولاً من قائمة البحث!");
+                return;
+            }
+
+            let alertMsg = "";
+            if (type === 'no_hw') {
+                alertMsg = `الأستاذة إيمان الدمشتي - أستاذة الرياضيات 📐\n\nإلى ولي أمر الطالب/ة: ${student.name}\nنحيط سيادتكم علماً بأن الطالب/ة لم يقم بحل الواجب المنزلي المطلوب للحصة اليوم.\nيرجى المتابعة والاهتمام حرصاً على مستواه الدراسي.`;
+            } else if (type === 'shortage') {
+                alertMsg = `الأستاذة إيمان الدمشتي - أستاذة الرياضيات 📐\n\nإلى ولي أمر الطالب/ة: ${student.name}\nنحيط سيادتكم علماً بأن الطالب/ة لديه تقصير في حل الواجب المنزلي المطلوب اليوم (غير مكتمل).\nيرجى المتابعة الدورية للارتقاء بمستواه.`;
+            }
+
+            document.getElementById('direct-message-text').value = alertMsg;
+        }
+
         function sendDirectCustomMessage() {
             if (!hasPermission('send_messages')) {
                 alert("❌ ليست لديك صلاحية إرسال الرسائل!");
@@ -1961,7 +1982,7 @@
                 const student = window.studentsMap.get(barcode) || window.students.find(s => String(s.barcode).trim() === barcode);
                 if (!student) {
                     playBeep('error');
-                    document.getElementById('scan-result').innerHTML = `<div class="scan-card" style="border-right-color: var(--danger-color);"><h3 style="color:var(--danger-color);">⚠️ الباركود غير مسجل بالمجموعة!</h3></div>`;
+                    document.getElementById('scan-result').innerHTML = `<div class="scan-card" style="border-right-color: var(--danger-color);"><h3 style="color:var(--danger-color);">⚠️ الباركود غير مسجل بالمجموعة! (فشل التسجيل)</h3></div>`;
                     return;
                 }
 
@@ -2009,7 +2030,7 @@
                 document.getElementById('scan-result').innerHTML = `
                     <div class="scan-card">
                         <div class="scan-card-info">
-                            <h3>🟢 تم تسجيل: ${student.name} (${status})</h3>
+                            <h3>🟢 تم تسجيل الطالب بنجاح: ${student.name} (${status})</h3>
                             <div class="scan-badges">
                                 <span class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}">${isPaid ? '✅ تم دفع اشتراك الشهر' : '❌ الاشتراك غير مدفوع'}</span>
                                 <span class="badge badge-prev-att">الحصة السابقة: ${lastAtt}</span>
@@ -2226,33 +2247,29 @@
 
             await saveData();
             closeStatusModal();
-            renderAttendanceStats();
-            alert("✅ تم تعديل حالة الطالب بنجاح!");
+            alert("✅ تم تعديل الحالة وإعادة معالجة التقرير اليومي بنجاح!");
         }
 
         function renderCumulativeTable() {
+            const searchVal = (document.getElementById('search-cumulative-input')?.value || '').toLowerCase().trim();
             const tbody = document.getElementById('cumulative-table-body');
-            if(!tbody) return;
+            if (!tbody) return;
             tbody.innerHTML = '';
 
-            const query = (document.getElementById('search-cumulative-input')?.value || '').trim().toLowerCase();
-
             window.students.forEach(s => {
-                if (query && !s.name.toLowerCase().includes(query) && !String(s.barcode).toLowerCase().includes(query)) return;
-
-                const attRate = getAttendanceRate(s);
-                const absRate = getAbsenceRate(s);
-                const examAvg = getExamAverage(s);
+                if (searchVal && !s.name.toLowerCase().includes(searchVal) && !String(s.barcode).includes(searchVal)) {
+                    return;
+                }
 
                 tbody.innerHTML += `
                     <tr>
                         <td>${s.barcode}</td>
                         <td><strong>${s.name}</strong></td>
-                        <td>${s.groupGrade} (${s.groupDays})</td>
-                        <td><span style="color:#10b981; font-weight:bold;">${attRate}%</span></td>
-                        <td><span style="color:#f43f5e; font-weight:bold;">${absRate}%</span></td>
-                        <td><span style="color:var(--accent-cyan); font-weight:bold;">${examAvg}%</span></td>
-                        <td><span style="color:var(--primary-gold); font-weight:bold;">⭐ ${s.points || 0}</span></td>
+                        <td>${s.groupGrade}</td>
+                        <td><strong style="color:#10b981;">${getAttendanceRate(s)}%</strong></td>
+                        <td><strong style="color:#f43f5e;">${getAbsenceRate(s)}%</strong></td>
+                        <td><strong style="color:var(--accent-cyan);">${getExamAverage(s)}%</strong></td>
+                        <td>⭐ ${s.points || 0}</td>
                     </tr>
                 `;
             });
@@ -2260,7 +2277,7 @@
 
         async function payExpenses() {
             if (!hasPermission('pay_expenses')) {
-                alert("❌ غير مصرح لك بتسجيل تحصيل الاشتراكات!");
+                alert("❌ ليست لديك صلاحية إثبات دفع المصروفات!");
                 return;
             }
 
@@ -2269,47 +2286,39 @@
 
             const student = window.studentsMap.get(barcode) || window.students.find(s => String(s.barcode).trim() === barcode);
             if (!student) {
-                alert("❌ الباركود غير مسجل!");
+                alert("❌ الباركود غير مسجل بأسماء الطلاب!");
                 return;
             }
 
-            const gradePrice = (window.groupPrices && window.groupPrices[student.groupGrade]) 
-                ? window.groupPrices[student.groupGrade] 
+            const gradePrice = (window.groupPrices && window.groupPrices[student.groupGrade] !== undefined)
+                ? window.groupPrices[student.groupGrade]
                 : (defaultGroupPrices[student.groupGrade] || 100);
 
             const lastPay = window.payments[student.barcode];
-            if (lastPay) {
-                const lastDate = new Date(lastPay.date);
-                const diffDays = Math.floor((new Date() - lastDate) / (1000 * 60 * 60 * 24));
+            if (lastPay && lastPay.status === 'تم الدفع') {
+                const diffTime = Math.abs(new Date() - new Date(lastPay.date));
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 if (diffDays < 20) {
-                    alert(`⚠️ الطالب (${student.name}) قام بالدفع منذ ${diffDays} يوماً فقط! لا يمكن التحصيل مجدداً إلا بعد 20 يوماً.`);
+                    alert(`⚠️ هذا الطالب مدفوع له بالفعل بتاريخ (${lastPay.date}).\nلم يمر أكثر من 20 يوماً على السداد بعد!`);
                     return;
                 }
             }
 
-            const now = new Date();
-            const payDate = getTodayKey();
-            const payTime = now.toLocaleTimeString('ar-EG');
-            const dayName = now.toLocaleDateString('ar-EG', { weekday: 'long' });
-
             window.payments[student.barcode] = {
-                date: payDate,
-                time: payTime,
+                date: getTodayKey(),
                 amount: gradePrice,
                 status: 'تم الدفع'
             };
 
             await saveData();
             document.getElementById('expense-search-barcode').value = '';
-
+            
             let formattedPhone = student.parentPhone.trim();
-            if (formattedPhone.startsWith('0')) formattedPhone = '2' + formattedPhone;
-
-            const payMsg = `الأستاذة إيمان الدمشتي - أستاذة الرياضيات 📐\n\nإلى ولي أمر الطالب/ة: ${student.name}\nتم بفضل الله استلام وسداد قيمة الاشتراك الشهري بنجاح.\n\n💵 قيمة الاشتراك: ${gradePrice} ج.م\n📅 تاريخ الاشتراك: ${payDate}\n🕒 وقت الدفع: ${payTime}\n📆 اليوم: ${dayName}\n\nشاكرين لسيادتكم حسن التعاون والاهتمام.`;
+            if(formattedPhone.startsWith('0')) formattedPhone = '2' + formattedPhone;
+            const payMsg = `الأستاذة إيمان الدمشتي - أستاذة الرياضيات 📐\n\nتم استلام واثبات دفع قيمة الاشتراك الشهري لـ الطالب/ة: ${student.name}\nالمبلغ: ${gradePrice} جنيه.\nتاريخ السداد: ${getTodayKey()}\nشكراً لكم.`;
 
             window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(payMsg)}`, '_blank');
-
-            alert(`✅ تم إثبات سداد اشتراك الطالب: (${student.name}) بمبلغ ${gradePrice} ج.م بنجاح وإرسال الإشعار لولي الأمر!`);
+            alert(`✅ تم إثبات سداد الاشتراك بمبلغ ${gradePrice} ج.م للطالب (${student.name}) وإرسال الإشعار!`);
         }
 
         function renderExpenses() {
@@ -2321,21 +2330,22 @@
             let unpaidCount = 0;
             let dailyTotal = 0;
             let monthlyTotal = 0;
-            const todayKey = getTodayKey();
+
+            const today = getTodayKey();
 
             window.students.forEach(s => {
                 const payInfo = window.payments[s.barcode];
                 const isPaid = payInfo && payInfo.status === 'تم الدفع';
 
-                const price = (window.groupPrices && window.groupPrices[s.groupGrade]) 
-                    ? window.groupPrices[s.groupGrade] 
+                const gradePrice = (window.groupPrices && window.groupPrices[s.groupGrade] !== undefined)
+                    ? window.groupPrices[s.groupGrade]
                     : (defaultGroupPrices[s.groupGrade] || 100);
 
                 if (isPaid) {
                     paidCount++;
-                    monthlyTotal += payInfo.amount || price;
-                    if (payInfo.date === todayKey) {
-                        dailyTotal += payInfo.amount || price;
+                    monthlyTotal += payInfo.amount || gradePrice;
+                    if (payInfo.date === today) {
+                        dailyTotal += payInfo.amount || gradePrice;
                     }
                 } else {
                     unpaidCount++;
@@ -2345,10 +2355,10 @@
                     <tr>
                         <td>${s.barcode}</td>
                         <td><strong>${s.name}</strong></td>
-                        <td>${s.groupGrade} (${s.groupDays})</td>
-                        <td>${isPaid ? `${payInfo.date} (${payInfo.time})` : '-'}</td>
-                        <td>${isPaid ? payInfo.amount + ' ج.م' : price + ' ج.م'}</td>
-                        <td>${isPaid ? '<span style="color:#10b981; font-weight:bold;">✅ تم الدفع</span>' : '<span style="color:#f43f5e; font-weight:bold;">❌ غير مدفوع</span>'}</td>
+                        <td>${s.groupGrade}</td>
+                        <td>${isPaid ? payInfo.date : '-'}</td>
+                        <td>${isPaid ? (payInfo.amount || gradePrice) + ' ج.م' : '0 ج.م'}</td>
+                        <td>${isPaid ? '<span class="status-paid">✅ تم السداد</span>' : '<span class="status-unpaid">❌ غير مدفوع</span>'}</td>
                     </tr>
                 `;
             });
@@ -2363,64 +2373,75 @@
         async function saveGradeDirectly(e) {
             e.preventDefault();
             if (!hasPermission('add_grades')) {
-                alert("❌ غير مصرح لك برصد الدرجات!");
+                alert("❌ ليست لديك صلاحية رصد درجات الامتحان!");
                 return;
             }
 
             const title = document.getElementById('exam-title').value.trim();
             const barcode = document.getElementById('exam-student-barcode').value.trim();
-            const scoreText = document.getElementById('exam-score').value.trim();
+            const scoreStr = document.getElementById('exam-score').value.trim();
 
             const student = window.studentsMap.get(barcode) || window.students.find(s => String(s.barcode).trim() === barcode);
             if (!student) {
-                alert("❌ الباركود غير مسجل!");
+                alert("❌ الباركود غير صحيح أو لا يوجد طالب مسجل بهذا الكود!");
                 return;
             }
 
-            let numScore = parseFloat(scoreText);
-            if (isNaN(numScore)) numScore = 85; 
+            student.lastExamTitle = title;
+            student.lastExamScore = scoreStr;
+
+            let percentage = 100;
+            if (scoreStr.includes('من')) {
+                const parts = scoreStr.split('من');
+                const got = parseFloat(parts[0]);
+                const total = parseFloat(parts[1]);
+                if (!isNaN(got) && !isNaN(total) && total > 0) {
+                    percentage = Math.round((got / total) * 100);
+                }
+            } else {
+                const val = parseFloat(scoreStr);
+                if (!isNaN(val)) percentage = val;
+            }
 
             if (!student.totalExamScores) student.totalExamScores = [];
-            student.totalExamScores.push(numScore);
-            student.lastExamTitle = title;
-            student.lastExamScore = scoreText;
+            student.totalExamScores.push(percentage);
 
             await saveData();
 
+            let evaluationText = "ممتاز جداً وسلوك راقي 🌟";
+            if (percentage < 50) evaluationText = "مستوى يحتاج إلى تركيز ومتابعة مكثفة ⚠️";
+            else if (percentage < 75) evaluationText = "مستوى جيد مع إمكانية لتحقيق الأفضل 👍";
+
             let formattedPhone = student.parentPhone.trim();
-            if(formattedPhone.startsWith('0')) formattedPhone = '2' + formattedPhone;
+            if (formattedPhone.startsWith('0')) formattedPhone = '2' + formattedPhone;
 
-            const gradeMsg = `الأستاذة إيمان الدمشتي - أستاذة الرياضيات 📐\n\nإلى ولي أمر الطالب/ة: ${student.name}\nنتيجة (${title}):\nالدرجة: ${scoreText}\nالتقدير العام: ${numScore >= 85 ? 'ممتاز 🌟' : (numScore >= 70 ? 'جيد جداً 👍' : 'يحتاج إلى مزيد من المتابعة 📝')}`;
+            const msg = `الأستاذة إيمان الدمشتي - أستاذة الرياضيات 📐\n\nنتيجة اختبار: (${title})\nالطالب/ة: ${student.name}\nالدرجة الحاصل عليها: ${scoreStr} (النسبة: ${percentage}%)\nالتقييم: ${evaluationText}`;
 
-            window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(gradeMsg)}`, '_blank');
-
-            document.getElementById('exam-student-barcode').value = '';
-            document.getElementById('exam-score').value = '';
-            alert(`✅ تم حفظ نتيجة الطالب (${student.name}) بنجاح وإرسال الإشعار لولي الأمر!`);
+            window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+            document.getElementById('grade-form').reset();
+            alert(`✅ تم حفظ نتيجة الطالب (${student.name}) وإرسال التقرير لولي الأمر!`);
         }
 
         function renderManageStudentsTable() {
+            const searchVal = (document.getElementById('search-manage-input')?.value || '').toLowerCase().trim();
             const tbody = document.getElementById('manage-students-table-body');
             if(!tbody) return;
             tbody.innerHTML = '';
 
-            const query = (document.getElementById('search-manage-input')?.value || '').trim().toLowerCase();
-
-            window.students.forEach(s => {
-                if (query && !s.name.toLowerCase().includes(query) && !String(s.barcode).toLowerCase().includes(query) && !s.phone.includes(query)) return;
-
-                const examAvg = getExamAverage(s);
-                const absRate = getAbsenceRate(s);
+            window.students.forEach((s) => {
+                if (searchVal && !s.name.toLowerCase().includes(searchVal) && !String(s.barcode).includes(searchVal) && !s.phone.includes(searchVal)) {
+                    return;
+                }
 
                 tbody.innerHTML += `
                     <tr>
                         <td>${s.barcode}</td>
                         <td><strong>${s.name}</strong></td>
                         <td>⭐ ${s.points || 0}</td>
-                        <td>${examAvg}%</td>
-                        <td>${absRate}%</td>
+                        <td>${getExamAverage(s)}%</td>
+                        <td>${getAbsenceRate(s)}%</td>
                         <td>
-                            ${hasPermission('edit_student') ? `<button class="btn" style="background:#0284c7; color:#fff; padding:4px 8px; font-size:12px; margin-left:4px;" onclick="openEditStudentModal('${s.barcode}')">✏️ تعديل</button>` : ''}
+                            ${hasPermission('edit_student') ? `<button class="btn" style="background:#0284c7; color:#fff; padding:4px 8px; font-size:12px;" onclick="openEditStudentModal('${s.barcode}')">✏️ تعديل</button>` : ''}
                             ${hasPermission('delete_student') ? `<button class="btn" style="background:var(--danger-color); color:#fff; padding:4px 8px; font-size:12px;" onclick="deleteStudent('${s.barcode}')">🗑️ حذف</button>` : ''}
                         </td>
                     </tr>
@@ -2430,7 +2451,7 @@
 
         function openEditStudentModal(barcode) {
             const student = window.studentsMap.get(String(barcode).trim()) || window.students.find(s => String(s.barcode).trim() === String(barcode).trim());
-            if(!student) return;
+            if (!student) return;
 
             document.getElementById('edit-stud-barcode').value = student.barcode;
             document.getElementById('edit-stud-name').value = student.name;
@@ -2449,104 +2470,67 @@
         async function updateStudentData(e) {
             e.preventDefault();
             const barcode = document.getElementById('edit-stud-barcode').value;
-            const student = window.studentsMap.get(String(barcode).trim()) || window.students.find(s => String(s.barcode).trim() === String(barcode).trim());
-            if (!student) return;
+            const studentIndex = window.students.findIndex(s => String(s.barcode).trim() === String(barcode).trim());
 
-            student.name = document.getElementById('edit-stud-name').value.trim();
-            student.phone = document.getElementById('edit-stud-phone').value.trim();
-            student.parentPhone = document.getElementById('edit-stud-parent-phone').value.trim();
-            student.groupGrade = document.getElementById('edit-stud-grade-select').value;
-            student.groupDays = document.getElementById('edit-stud-days-select').value;
+            if (studentIndex !== -1) {
+                window.students[studentIndex].name = document.getElementById('edit-stud-name').value.trim();
+                window.students[studentIndex].phone = document.getElementById('edit-stud-phone').value.trim();
+                window.students[studentIndex].parentPhone = document.getElementById('edit-stud-parent-phone').value.trim();
+                window.students[studentIndex].groupGrade = document.getElementById('edit-stud-grade-select').value;
+                window.students[studentIndex].groupDays = document.getElementById('edit-stud-days-select').value;
 
-            await saveData();
-            closeEditModal();
-            renderManageStudentsTable();
-            alert("✅ تم تحديث بيانات الطالب بنجاح!");
+                await saveData();
+                closeEditModal();
+                alert("✅ تم تحديث وحفظ بيانات الطالب بنجاح!");
+            }
         }
 
         async function deleteStudent(barcode) {
-            if (!confirm("هل أنت متأكد تماماً من حذف هذا الطالب نهائياً من السيستم؟")) return;
-            window.students = window.students.filter(s => String(s.barcode).trim() !== String(barcode).trim());
-            delete window.payments[barcode];
-            await saveData();
-            renderManageStudentsTable();
-            alert("تم حذف الطالب بنجاح!");
+            const student = window.studentsMap.get(String(barcode).trim()) || window.students.find(s => String(s.barcode).trim() === String(barcode).trim());
+            if (student && confirm(`هل أنت متأكد من حذف الطالب (${student.name}) نهائياً؟`)) {
+                window.students = window.students.filter(s => String(s.barcode).trim() !== String(barcode).trim());
+                await saveData();
+                alert("تم حذف الطالب بنجاح!");
+            }
         }
 
         async function clearAllSystemData() {
             if (window.currentUser.role !== 'admin') {
-                alert("❌ صلاحية مسح كافة البيانات مقتصرة على المسؤول الأدمن فقط!");
+                alert("❌ صلاحية مسح الشاملة مقتصرة فقط على الأدمن!");
                 return;
             }
 
-            const confirm1 = confirm("⚠️ تحذير خطير جداً: هل أنت متأكد من مسح جميع بيانات الطلاب والغياب والاشتراكات نهائياً؟");
-            if (!confirm1) return;
+            const confirmPass = prompt("🚨 تبييض ومسح شامل للبيانات!\nأدخل كلمة مرور النظام لتأكيد المسح الكلي:");
+            if (confirmPass === window.currentUser.pass) {
+                window.students = [];
+                window.attendanceHistory = {};
+                window.attendanceToday = {};
+                window.payments = {};
+                window.sendLogToday = {};
+                window.scanLogOrder = [];
+                window.studentsMap.clear();
 
-            const pass = prompt("أدخل كلمة مرور الأدمن لتأكيد المسح الشامل للبيانات:");
-            if (pass !== window.currentUser.pass) {
-                alert("❌ كلمة المرور غير صحيحة، تم إيقاف عملية المسح!");
-                return;
+                await saveData();
+                alert("✅ تم مسح وتصفير كافة البيانات بنجاح!");
+            } else {
+                alert("❌ كلمة المرور غير صحيحة، تم إلغاء المسح!");
             }
-
-            window.students = [];
-            window.attendanceHistory = {};
-            window.attendanceToday = {};
-            window.payments = {};
-            window.sendLogToday = {};
-            window.scanLogOrder = [];
-            window.whatsappQueue = [];
-
-            await saveData();
-            alert("✅ تم مسح جميع البيانات وتصفير المنظومة بنجاح!");
-        }
-
-        function exportAttendanceToExcel() {
-            const selectedDate = document.getElementById('attendance-history-date-picker').value;
-            const filterGrade = document.getElementById('filter-grade-select').value;
-            const filterDays = document.getElementById('filter-days-select').value;
-
-            const historyOnDate = (selectedDate === getTodayKey()) 
-                ? window.attendanceToday 
-                : (window.attendanceHistory[selectedDate] || {});
-
-            const exportData = [];
-
-            window.students.forEach(s => {
-                if (filterGrade !== 'ALL' && s.groupGrade !== filterGrade) return;
-                if (filterDays !== 'ALL' && s.groupDays !== filterDays) return;
-
-                const status = historyOnDate[s.barcode] || "لم يسجل";
-                exportData.push({
-                    "الباركود": s.barcode,
-                    "اسم الطالب": s.name,
-                    "الصف الدراسي": s.groupGrade,
-                    "أيام المجموعة": s.groupDays,
-                    "حالة الحضور": status,
-                    "رقم ولي الأمر": s.parentPhone
-                });
-            });
-
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "تقرير الحضور");
-            XLSX.writeFile(wb, `تقرير_حضور_${selectedDate}.xlsx`);
         }
 
         async function exportAbsencePDFAndSendWhatsApp() {
+            const currentGroup = getSelectedScanGroup();
             const selectedDate = document.getElementById('attendance-history-date-picker').value;
-            const historyOnDate = (selectedDate === getTodayKey()) 
-                ? window.attendanceToday 
-                : (window.attendanceHistory[selectedDate] || {});
 
-            const absentList = window.students.filter(s => historyOnDate[s.barcode] === "غائب" || historyOnDate[s.barcode] === "تأخير");
+            const groupStudents = window.students.filter(s => `${s.groupGrade} (${s.groupDays})` === currentGroup);
+            const historyOnDate = (selectedDate === getTodayKey()) ? window.attendanceToday : (window.attendanceHistory[selectedDate] || {});
 
             const container = document.getElementById('pdf-export-container');
             container.innerHTML = `
                 <div class="pdf-page">
                     <div class="pdf-header">
                         <h2>📐 منظومة الأستاذة إيمان الدمشتي - أستاذة الرياضيات</h2>
-                        <p>كشف تقرير الغياب والتأخير اليومي</p>
-                        <p>تاريخ السجل: ${selectedDate}</p>
+                        <p>كشف تقرير الحضور والغياب اليومي للمجموعة: ${currentGroup}</p>
+                        <p>التاريخ: ${selectedDate}</p>
                     </div>
                     <table class="pdf-table">
                         <thead>
@@ -2554,81 +2538,22 @@
                                 <th>#</th>
                                 <th>الباركود</th>
                                 <th>اسم الطالب</th>
-                                <th>الصف والمجموعة</th>
-                                <th>الحالة</th>
-                                <th>تليفون ولي الأمر</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${absentList.map((s, idx) => `
-                                <tr>
-                                    <td>${idx + 1}</td>
-                                    <td>${s.barcode}</td>
-                                    <td><strong>${s.name}</strong></td>
-                                    <td>${s.groupGrade} (${s.groupDays})</td>
-                                    <td><strong style="color:${historyOnDate[s.barcode] === 'غائب' ? '#991b1b' : '#b45309'}">${historyOnDate[s.barcode]}</strong></td>
-                                    <td>${s.parentPhone}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            container.style.display = 'block';
-
-            const opt = {
-                margin: 0.5,
-                filename: `تقرير_الغياب_${selectedDate}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-
-            await html2pdf().set(opt).from(container).save();
-            container.style.display = 'none';
-
-            const msg = `أهلاً أستاذة إيمان الدمشتي 📐\nتم إصدار وحفظ تقرير غياب وتأخير الطلاب ليوم (${selectedDate}) بنجاح.\nعدد الطلاب الغائبين والمتأخرين: ${absentList.length}`;
-            window.open(`https://api.whatsapp.com/send?phone=${SCHOOL_WHATSAPP_PHONE}&text=${encodeURIComponent(msg)}`, '_blank');
-        }
-
-        async function exportUnpaidPDFAndSendToSchool() {
-            const unpaidList = window.students.filter(s => {
-                const payInfo = window.payments[s.barcode];
-                return !payInfo || payInfo.status !== 'تم الدفع';
-            });
-
-            const container = document.getElementById('pdf-export-container');
-            container.innerHTML = `
-                <div class="pdf-page">
-                    <div class="pdf-header">
-                        <h2>📐 منظومة الأستاذة إيمان الدمشتي - أستاذة الرياضيات</h2>
-                        <p>كشف الطلاب غير المسددين لاشتراك الشهر</p>
-                        <p>تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</p>
-                    </div>
-                    <table class="pdf-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>الباركود</th>
-                                <th>اسم الطالب</th>
-                                <th>الصف والمجموعة</th>
-                                <th>قيمة الاشتراك</th>
+                                <th>حالة الحضور اليوم</th>
+                                <th>الغياب المتتالي ⚠️</th>
                                 <th>رقم ولي الأمر</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${unpaidList.map((s, idx) => {
-                                const price = (window.groupPrices && window.groupPrices[s.groupGrade]) 
-                                    ? window.groupPrices[s.groupGrade] 
-                                    : (defaultGroupPrices[s.groupGrade] || 100);
+                            ${groupStudents.map((s, idx) => {
+                                const st = historyOnDate[s.barcode] || "غائب";
+                                const consecutive = getConsecutiveAbsenceCount(s.barcode);
                                 return `
                                     <tr>
                                         <td>${idx + 1}</td>
                                         <td>${s.barcode}</td>
                                         <td><strong>${s.name}</strong></td>
-                                        <td>${s.groupGrade} (${s.groupDays})</td>
-                                        <td>${price} ج.م</td>
+                                        <td>${st}</td>
+                                        <td>${consecutive >= 2 ? `<span class="pdf-consecutive-alert">🚨 غائب ${consecutive} حصص</span>` : `${consecutive} حصة`}</td>
                                         <td>${s.parentPhone}</td>
                                     </tr>
                                 `;
@@ -2642,7 +2567,7 @@
 
             const opt = {
                 margin: 0.5,
-                filename: `كشف_الغير_مدفوع_${getTodayKey()}.pdf`,
+                filename: `تقرير_غياب_${currentGroup}_${selectedDate}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -2651,8 +2576,92 @@
             await html2pdf().set(opt).from(container).save();
             container.style.display = 'none';
 
-            const msg = `أهلاً أستاذة إيمان الدمشتي 📐\nتم استخراج كشف الطلاب غير المسددين لاشتراك الشهر بنجاح.\nعدد الطلاب المتبقي عليهم السداد: ${unpaidList.length}`;
+            const msg = `أهلاً أستاذة إيمان الدمشتي 📐\nتم تصدير وحفظ تقرير غياب وتأخير مجموعة (${currentGroup}) لتاريخ: ${selectedDate} بنجاح.`;
             window.open(`https://api.whatsapp.com/send?phone=${SCHOOL_WHATSAPP_PHONE}&text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        async function exportUnpaidPDFAndSendToSchool() {
+            const container = document.getElementById('pdf-export-container');
+            
+            const unpaidStudents = window.students.filter(s => {
+                const pay = window.payments[s.barcode];
+                return !pay || pay.status !== 'تم الدفع';
+            });
+
+            container.innerHTML = `
+                <div class="pdf-page">
+                    <div class="pdf-header">
+                        <h2>📐 منظومة الأستاذة إيمان الدمشتي - أستاذة الرياضيات</h2>
+                        <p>كشف الطلاب المستحق عليهم سداد الاشتراكات الشهرية</p>
+                        <p>التاريخ: ${new Date().toLocaleDateString('ar-EG')}</p>
+                    </div>
+                    <table class="pdf-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>الباركود</th>
+                                <th>اسم الطالب</th>
+                                <th>الصف الدراسي والمجموعة</th>
+                                <th>قيمة الاشتراك</th>
+                                <th>رقم ولي الأمر</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${unpaidStudents.map((s, idx) => {
+                                const gradePrice = (window.groupPrices && window.groupPrices[s.groupGrade] !== undefined)
+                                    ? window.groupPrices[s.groupGrade]
+                                    : (defaultGroupPrices[s.groupGrade] || 100);
+                                return `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td>${s.barcode}</td>
+                                        <td><strong>${s.name}</strong></td>
+                                        <td>${s.groupGrade} (${s.groupDays})</td>
+                                        <td>${gradePrice} ج.م</td>
+                                        <td>${s.parentPhone}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.style.display = 'block';
+
+            const opt = {
+                margin: 0.5,
+                filename: `كشف_الطلاب_غير_الدافعين_${getTodayKey()}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            await html2pdf().set(opt).from(container).save();
+            container.style.display = 'none';
+
+            const msg = `أهلاً أستاذة إيمان الدمشتي 📐\nتم حصر وتصدير كشف الطلاب غير الدافعين لرسوم الاشتراك بنجاح. عدد الطلاب المستحق عليهم الدفع: ${unpaidStudents.length} طالب.`;
+            window.open(`https://api.whatsapp.com/send?phone=${SCHOOL_WHATSAPP_PHONE}&text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function exportAttendanceToExcel() {
+            const selectedDate = document.getElementById('attendance-history-date-picker').value;
+            const historyOnDate = (selectedDate === getTodayKey()) ? window.attendanceToday : (window.attendanceHistory[selectedDate] || {});
+
+            const excelData = window.students.map(s => ({
+                "الباركود": s.barcode,
+                "اسم الطالب": s.name,
+                "الصف الدراسي": s.groupGrade,
+                "أيام المجموعة": s.groupDays,
+                "حالة الحضور اليوم": historyOnDate[s.barcode] || "غائب",
+                "رقم الطالب": s.phone,
+                "رقم ولي الأمر": s.parentPhone
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "تقرير الحضور");
+            XLSX.writeFile(workbook, `تقرير_حضور_${selectedDate}.xlsx`);
         }
     </script>
 </body>
